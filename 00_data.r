@@ -48,7 +48,7 @@ simulate.liver.data <- function(N = 1000, scenario = "confounded", seed = NULL){
   # Ascites is a strong driver of decompensation.
   # We assume females might have slightly higher rates in this autoimmune-heavy sample.
   prob.ascites <- 0.3 + (0.1 * sex) 
-  ascites <- rbinom(N, size = 1, prob = prob_ascites)
+  ascites <- rbinom(N, size = 1, prob = prob.ascites)
 
   # C. AGE GROUP (Covariate for Subgrouping)
   # 0 = <60 years, 1 = >=60 years
@@ -73,9 +73,9 @@ simulate.liver.data <- function(N = 1000, scenario = "confounded", seed = NULL){
 
   d <- d %>% 
     mutate(subgroup_label = paste0(
-      ifelse(sex==1, "F", "M"), "_",              # Female/Male
-      ifelse(ascites==1, "Ascites", "NoAsc"), "_", # Ascites Status
-      ifelse(age.high==1, "Old", "Young")          # Age Status
+      ifelse(sex==1, "F", "M"), "_",
+      ifelse(ascites==1, "Ascites", "NoAsc"), "_",
+      ifelse(age.high==1, "Old", "Young")
     )) %>%
       mutate(subgroup_id = as.numeric(as.factor(subgroup_label)))
 
@@ -85,8 +85,9 @@ simulate.liver.data <- function(N = 1000, scenario = "confounded", seed = NULL){
   # We will use Partial Pooling to "borrow strength" from other groups.
   # Skeptical Prior = Borrow strength from Men (assume F=M).
   # Informative Prior = Borrow strength from Women (assume F diff from M).
-  print("Sample Size per Subgroup:")
-  print(table(d$subgroup_label))
+
+  # print("Sample Size per Subgroup:")
+  # print(table(d$subgroup_label))
 
   ###--------------------------------------------------------------------------###
   ### 3. Simulate Unmeasured Confounding: SARCOPENIA (Part 2)
@@ -114,25 +115,20 @@ simulate.liver.data <- function(N = 1000, scenario = "confounded", seed = NULL){
   # This creates CONFOUNDING BY INDICATION: The sickest people get the treatment.
 
   if(scenario == "confounded") {
-    print("-------confounded-------")
-    # confounding by indication: Frail (high U) and Ascites patients get treated
-    z.score <- -0.5 + (1.2 * d$ascites) + (1.5 * d$U) - (0.5 * d$age.high)
-    prob.A <- plogis(z.score)
-
-    d$A <- rbinom(N, size = 1, prob = prob.A)
+      # Confounding: Frail (High U) and Ascites get treatment
+      z.score <- -0.5 + (1.2 * d$ascites) + (1.5 * d$U) - (0.5 * d$age.high)
+      prob.A <- plogis(z.score)
+      d$A <- rbinom(N, size = 1, prob = prob.A)
   } else {
-    print("-------randomized-------")
-    # Randomized trial setting (no confounding by U) - sanity checks 
-    z.score <- -0.5 + (1.2 * d$ascites) - (0.5 * d$age.high)
-    prob.A <- plogis(z.score)
-
-    d$A <- rbinom(N, size = 1, prob = prob.A)
-    
+      # Randomized (Clean)
+      z.score <- -0.5 + (1.2 * d$ascites) - (0.5 * d$age.high)
+      prob.A <- plogis(z.score)
+      d$A <- rbinom(N, size = 1, prob = prob.A)
   }
 
   # Check overlap (Positivity)
   print("Probability of Treatment by Assignment:")
-  print(tapply(pr_A, d$A, summary))
+  print(tapply(prob.A, d$A, summary))
 
   # Check overlap (positivity assumption)
   tapply(prob.A, d$A, summary)
@@ -163,10 +159,11 @@ simulate.liver.data <- function(N = 1000, scenario = "confounded", seed = NULL){
 
   # C. GENERATE OBSERVED Y
   # Y = Baseline + (TreatmentEffect * A) + Noise
-  sigma.y <- 3 # Residual variance
-  d$Y.obs <- baseline.meld + (true.cate * d$A) + rnorm(N, mean=0, sd=sigma.y)
+  sigma.y <- 3 
+  y.latent <- baseline.meld + (true.cate * d$A) + rnorm(N, mean=0, sd=sigma.y)  
 
-  # Clamp to realistic MELD range (6 to 40)
+  # Clamp to realistic MELD range (6 to 40) 
+  d$Y.obs <- round(y.latent) # MELD is an integer score
   d$Y.obs <- pmax(6, pmin(40, d$Y.obs))
 
   # Store "True" CATE for validation later
@@ -187,31 +184,35 @@ simulate.liver.data <- function(N = 1000, scenario = "confounded", seed = NULL){
   # Package into list for Stan
   stan_data_list <- list(
     N = N,
-    Y = d$Y_obs,                  # Outcome: MELD 3.0 Score
+    Y = d$Y.obs,                  # Outcome: MELD 3.0 Score
     A = d$A,                      # Treatment: Nutrition
     W = W_matrix,                 # Observed Confounders
     V = V_matrix,                 # Subgroup Definitions
-    Pw = ncol(W_matrix),
-    Pv = ncol(V_matrix),
+    Pw = ncol(W_matrix),          # Number of confounders
+    Pv = ncol(V_matrix),          # Number of subgroups
     n_v = as.numeric(table(d$subgroup_id)), # Count per subgroup
     # Helper for indexing in Stan (cumulative sum of counts)
     ind = c(0, cumsum(as.numeric(table(d$subgroup_id)))) 
   )
 
-  return(list(data=d, stan.data = stan_data_list))
-} # end of simulate.liver.data
+  
+  # Allow passing priors dynamically later (Defaults for now)
+  stan_data_list$prior_tau_sigma <- 5 
+  stan_data_list$prior_mean_mu <- 0
 
+  return(list(d=d, stan.data = stan_data_list))
+} 
 
-# sanity check
-
+# Sanity Check Usage
 sim.output <- simulate.liver.data(N = 1000, scenario = "confounded", seed = 2025)
 d <- sim.output$d
 stan_data_list <- sim.output$stan.data
 
-print("Mean True CATE by Sex (expected Females to be more negative): ")
-print(aggregate(true_cate ~ sex, data=sim.output$d, mean))
+print("--- Data Gen Complete ---")
+print(head(d))
 
-
+# print("Mean True CATE by Sex (expected Females to be more negative): ")
+# print(aggregate(true_cate ~ sex, data=sim.output$d, mean))
 
 ###--------------------------------------------------------------------------###
 ### 7. Save Data for Analysis Steps
@@ -219,33 +220,36 @@ print(aggregate(true_cate ~ sex, data=sim.output$d, mean))
 
 # 1. Save the FULL dataset with Truth (U). 
 # We use this to check if our sensitivity analysis covered the true bias.
-saveRDS(d, "simulated_liver_data_FULL.rds")
+# saveRDS(d, "simulated_liver_data_FULL.rds")
 
 # 2. Save the Stan Input. 
 # This represents the "Real World" data where Sarcopenia (U) is missing/unmeasured.
-saveRDS(stan_data_list, "stan_liver_data_input.rds")
+# saveRDS(stan_data_list, "stan_liver_data_input.rds")
 
 ###--------------------------------------------------------------------------###
 ### 8. Narrative Sanity Checks (Print to Console)
 ###--------------------------------------------------------------------------###
 
-print("--- SIMULATION REPORT ---")
+# print("--- SIMULATION REPORT ---")
 
 # 1. Naive Effect (The Confounded Estimate)
 # Because Sarcopenic people (U) got treated more often, and Sarcopenia causes high MELD,
 # the nutrition protocol might look like it DOESN'T work (or works poorly) in a naive view.
-print("Naive Average Treatment Effect (Observed Difference):")
-print(mean(d$Y.obs[d$A==1]) - mean(d$Y.obs[d$A==0]))
+
+# print("Naive Average Treatment Effect (Observed Difference):")
+# print(mean(d$Y.obs[d$A==1]) - mean(d$Y.obs[d$A==0]))
 
 # 2. The Truth (The Causal Effect)
 # We know nutrition helps (-3 base). 
-print("True Average Treatment Effect (Counterfactual):")
-print(mean(d$true.cate))
+
+# print("True Average Treatment Effect (Counterfactual):")
+# print(mean(d$true.cate))
 
 # 3. The Sex Disparity (The Motivation for Part 1)
 # Females should show a stronger benefit (-5ish) compared to Males (-3ish).
 # The Part 1 Models (Priors) will struggle to see this if the subgroup N is small.
-print("True Benefit by Sex (Females should benefit more):")
-print(aggregate(true.cate ~ sex, data=d, mean))
 
-hist(d$Y.obs, main="Simulated MELD 3.0 Scores", xlab="MELD Score", col="salmon", border="white")
+# print("True Benefit by Sex (Females should benefit more):")
+# print(aggregate(true.cate ~ sex, data=d, mean))
+
+# hist(d$Y.obs, main="Simulated MELD 3.0 Scores", xlab="MELD Score", col="salmon", border="white")
