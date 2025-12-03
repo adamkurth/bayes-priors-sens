@@ -1,6 +1,7 @@
 rm(list=ls())
-setwd("~/Documents/RStudio/research/bayes-priors-sens/test/") 
+# setwd("~/Documents/RStudio/research/bayes-priors-sens/test/") 
 
+source("R/02_generate.r")
 # generate fake data
 N <- 100 
 Y <- rnorm(N, 1.6, 0.2)

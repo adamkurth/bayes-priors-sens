@@ -24,12 +24,25 @@ library(latex2exp)
 
 # Set seed for reproducibility
 set.seed(2025)
-setwd("/Users/adamkurth/Documents/RStudio/research/bayes-priors-sens")
+# setwd("/Users/adamkurth/Documents/RStudio/research/bayes-priors-sens")
+
 
 # Define sample size (Registry data is usually large, but we use N=1000 for demo)
 
-simulate.liver.data <- function(N = 1000, scenario = "confounded", seed = NULL){
-    
+###--------------------------------------------------------------------------###
+#' Simulate Liver Data with Tunable Confounding
+#'
+#' @param N Sample Size
+#' @param scenario "confounded" or "clean"
+#' @param gamma_u Effect of U on Treatment (Log-Odds). Higher = Stronger Selection Bias.
+#' @param beta_u Effect of U on Outcome (MELD Points). Higher = Stronger Outcome Bias.
+
+simulate.liver.data <- function(N = 1000, 
+                                scenario = "confounded", 
+                                gamma.u = 1.5, # Default: Strong Selection
+                                beta.u = 4,    # Default: Strong Outcome Bias
+                                seed = NULL){
+  
   if (!is.null(seed)) set.seed(seed)
   ###--------------------------------------------------------------------------###
   ### 1. Define Sample and Covariates ("The Patient Profile")
@@ -127,11 +140,8 @@ simulate.liver.data <- function(N = 1000, scenario = "confounded", seed = NULL){
   }
 
   # Check overlap (Positivity)
-  print("Probability of Treatment by Assignment:")
-  print(tapply(prob.A, d$A, summary))
-
-  # Check overlap (positivity assumption)
-  tapply(prob.A, d$A, summary)
+  # print("Probability of Treatment by Assignment:")
+  # print(tapply(prob.A, d$A, summary))
 
   ###--------------------------------------------------------------------------###
   ### 5. Simulate Outcome: MELD 3.0 SCORE at 90 Days (Y)
@@ -203,13 +213,16 @@ simulate.liver.data <- function(N = 1000, scenario = "confounded", seed = NULL){
   return(list(d=d, stan.data = stan_data_list))
 } 
 
-# Sanity Check Usage
-sim.output <- simulate.liver.data(N = 1000, scenario = "confounded", seed = 2025)
-d <- sim.output$d
-stan_data_list <- sim.output$stan.data
+# END OF SCRIPT 
 
-print("--- Data Gen Complete ---")
-print(head(d))
+# 
+# # Sanity Check Usage
+# sim.output <- simulate.liver.data(N = 1000, scenario = "confounded", seed = 2025)
+# d <- sim.output$d
+# stan_data_list <- sim.output$stan.data
+# 
+# print("--- Data Gen Complete ---")
+# print(head(d))
 
 # print("Mean True CATE by Sex (expected Females to be more negative): ")
 # print(aggregate(true_cate ~ sex, data=sim.output$d, mean))
