@@ -71,8 +71,10 @@ generated quantities {
   // Posterior predictive checks
   vector[N] y_rep;
   for (n in 1:N) {
-     real y_hat = (W[n]*beta_w + V[n]*beta_v + (V[n]*theta)*A[n])[1];
+     real y_hat = dot_product(W[n], beta_w) + dot_product(V[n], beta_v) + dot_product(V[n], theta) * A[n];
      y_rep[n] = normal_rng(y_hat, sigma);
   }
-
 }
+
+
+

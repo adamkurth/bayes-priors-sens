@@ -1,2 +1,3 @@
 # Ignore all files in data_batches directory
 data_batches/*
+tex/*
