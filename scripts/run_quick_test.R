@@ -35,12 +35,12 @@ rstan_options(auto_write = TRUE)
 print("=== QUICK TEST: Single Simulation ===")
 
 # Compile model
-stan_model <- stan_model(file = "stan/partial_pool_continuous.stan")
+stan.model <- stan_model(file = "stan/partial_pool_continuous.stan")
 
 # Load one batch
-batch_file <- "data_batches/batch_BASELINE_Clean_N1000.rds"
-batch_data <- readRDS(batch_file)
-sim <- batch_data[[1]]
+batch.file <- "data_batches/batch_BASELINE_Clean_N1000.rds"
+batch.data <- readRDS(batch.file)
+sim <- batch.data[[1]]
 
 # Configure weak pooling prior
 sim$stan.data$prior_tau_sigma <- 5
@@ -49,7 +49,7 @@ sim$stan.data$prior_mean_mu <- 0
 # Fit model
 print("Fitting model...")
 fit <- sampling(
-  stan_model,
+  stan.model,
   data = sim$stan.data,
   iter = 1000,  # Reduced for quick test
   warmup = 500,
@@ -59,21 +59,21 @@ fit <- sampling(
 
 # Check diagnostics
 print("=== Diagnostics ===")
-diagnostics <- extract_stan_diagnostics(fit)
-cat(format_diagnostics_report(diagnostics))
+diagnostics <- extract.stan.diagnostics(fit)
+cat(format.diagnostics.report(diagnostics))
 
 # Extract CATE summary
 print("=== CATE Estimates vs Truth ===")
-cate_summary <- summary(fit, pars = "CATE")$summary %>% 
+cate.summary <- summary(fit, pars = "CATE")$summary %>% 
   as.data.frame() %>%
   rownames_to_column("param")
 
-subgroup_map <- sim$truth.data %>%
+subgroup.map <- sim$truth.data %>%
   dplyr::select(any_of(c("subgroup_id", "subgroup_label", "true.cate"))) %>%
   distinct() %>%
   arrange(subgroup_id)
 
-results <- cbind(subgroup_map, cate_summary)
+results <- cbind(subgroup.map, cate.summary)
 print(results %>% dplyr::select(any_of(c("subgroup_label", "true.cate", "mean", "2.5%", "97.5%"))))
 
 # Check if truth is within 95% CI
@@ -84,20 +84,20 @@ print(paste("\n95% Coverage:", mean(results$covered) * 100, "%"))
 
 # Quick PPC
 print("=== Generating PPC Plot ===")
-y_rep <- as.matrix(fit, pars = "y_rep")
-y_obs <- sim$stan.data$Y
+y.rep <- as.matrix(fit, pars = "y_rep")
+y.obs <- sim$stan.data$Y
 
-p_ppc <- ppc_dens_overlay(y_obs, y_rep[1:50, ]) +
+p.ppc <- ppc_dens_overlay(y.obs, y.rep[1:50, ]) +
   ggtitle("Quick Test: Posterior Predictive Check")
 
-ggsave("results/figures/quick_test_ppc.png", p_ppc, width = 8, height = 5)
+ggsave("results/figures/quick_test_ppc.png", p.ppc, width = 8, height = 5)
 print("PPC plot saved to results/figures/quick_test_ppc.png")
 
 # Forest plot
 print("=== Generating Forest Plot ===")
 results$Sex <- ifelse(grepl("^F", results$subgroup_label), "Female", "Male")
 
-p_forest <- ggplot(results, aes(x = subgroup_label, y = mean, color = Sex)) +
+p.forest <- ggplot(results, aes(x = subgroup_label, y = mean, color = Sex)) +
   geom_point(size = 3) +
   geom_errorbar(aes(ymin = `2.5%`, ymax = `97.5%`), width = 0.2) +
   geom_point(aes(y = true.cate), color = "black", shape = 4, size = 4, stroke = 1.5) +
@@ -112,7 +112,7 @@ p_forest <- ggplot(results, aes(x = subgroup_label, y = mean, color = Sex)) +
   theme_minimal() +
   scale_color_manual(values = c("Female" = "#E41A1C", "Male" = "#377EB8"))
 
-ggsave("results/figures/quick_test_forest.png", p_forest, width = 10, height = 6)
+ggsave("results/figures/quick_test_forest.png", p.forest, width = 10, height = 6)
 print("Forest plot saved to results/figures/quick_test_forest.png")
 
 print("\n=== QUICK TEST COMPLETE ===")

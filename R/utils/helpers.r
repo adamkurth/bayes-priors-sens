@@ -7,20 +7,20 @@
 #' 
 #' @param fit A stanfit object
 #' @return A list with diagnostic information
-extract_stan_diagnostics <- function(fit) {
+extract.stan.diagnostics <- function(fit) {
   
   # Get sampler parameters
-  sampler_params <- get_sampler_params(fit, inc_warmup = FALSE)
+  sampler.params <- get_sampler_params(fit, inc_warmup = FALSE)
   
   # Divergences
-  n_divergent <- sum(sapply(sampler_params, function(x) sum(x[, "divergent__"])))
+  n.divergent <- sum(sapply(sampler.params, function(x) sum(x[, "divergent__"])))
   
   # Max treedepth
-  n_max_treedepth <- sum(sapply(sampler_params, function(x) 
+  n.max.treedepth <- sum(sapply(sampler.params, function(x) 
     sum(x[, "treedepth__"] >= 10)))
   
   # Energy Bayesian Fraction of Missing Information (E-BFMI)
-  ebfmi <- sapply(sampler_params, function(x) {
+  ebfmi <- sapply(sampler.params, function(x) {
     energy <- x[, "energy__"]
     if (length(energy) > 1) {
       numer <- sum(diff(energy)^2) / length(energy)
@@ -31,30 +31,30 @@ extract_stan_diagnostics <- function(fit) {
   })
   
   # Summary statistics
-  fit_summary <- summary(fit)$summary
+  fit.summary <- summary(fit)$summary
   
   # R-hat
-  rhat_vals <- fit_summary[, "Rhat"]
-  rhat_max <- max(rhat_vals, na.rm = TRUE)
-  rhat_warn <- sum(rhat_vals > 1.01, na.rm = TRUE)
+  rhat.vals <- fit.summary[, "Rhat"]
+  rhat.max <- max(rhat.vals, na.rm = TRUE)
+  rhat.warn <- sum(rhat.vals > 1.01, na.rm = TRUE)
   
   # Effective sample size
-  neff_vals <- fit_summary[, "n_eff"]
-  neff_min <- min(neff_vals, na.rm = TRUE)
-  neff_ratio <- neff_vals / (nrow(as.matrix(fit)))
-  neff_warn <- sum(neff_ratio < 0.1, na.rm = TRUE)
+  neff.vals <- fit.summary[, "n_eff"]
+  neff.min <- min(neff.vals, na.rm = TRUE)
+  neff.ratio <- neff.vals / (nrow(as.matrix(fit)))
+  neff.warn <- sum(neff.ratio < 0.1, na.rm = TRUE)
   
   return(list(
-    n_divergent = n_divergent,
-    n_max_treedepth = n_max_treedepth,
+    n.divergent = n.divergent,
+    n.max.treedepth = n.max.treedepth,
     ebfmi = ebfmi,
-    ebfmi_low = sum(ebfmi < 0.2, na.rm = TRUE),
-    rhat_max = rhat_max,
-    rhat_warn = rhat_warn,
-    neff_min = neff_min,
-    neff_warn = neff_warn,
-    all_ok = (n_divergent == 0) & (n_max_treedepth == 0) & 
-             (rhat_max < 1.01) & (sum(ebfmi < 0.2, na.rm = TRUE) == 0)
+    ebfmi.low = sum(ebfmi < 0.2, na.rm = TRUE),
+    rhat.max = rhat.max,
+    rhat.warn = rhat.warn,
+    neff.min = neff.min,
+    neff.warn = neff.warn,
+    all.ok = (n.divergent == 0) & (n.max.treedepth == 0) & 
+             (rhat.max < 1.01) & (sum(ebfmi < 0.2, na.rm = TRUE) == 0)
   ))
 }
 
@@ -63,7 +63,7 @@ extract_stan_diagnostics <- function(fit) {
 #' @param df Data frame to format
 #' @param digits Number of decimal places
 #' @return Formatted data frame
-format_for_latex <- function(df, digits = 2) {
+format.for.latex <- function(df, digits = 2) {
   df %>%
     mutate(across(where(is.numeric), ~round(., digits)))
 }
@@ -73,7 +73,7 @@ format_for_latex <- function(df, digits = 2) {
 #' @param samples Vector of posterior samples
 #' @param direction Either "positive" or "negative"
 #' @return Probability that samples are in the specified direction
-prob_direction <- function(samples, direction = "negative") {
+prob.direction <- function(samples, direction = "negative") {
   if (direction == "negative") {
     mean(samples < 0)
   } else {
@@ -87,33 +87,33 @@ prob_direction <- function(samples, direction = "negative") {
 #' @param prob Probability mass (default 0.95)
 #' @return Named vector with lower and upper bounds
 hdi <- function(samples, prob = 0.95) {
-  sorted_samples <- sort(samples)
-  n <- length(sorted_samples)
-  n_included <- ceiling(prob * n)
-  n_ci <- n - n_included + 1
+  sorted.samples <- sort(samples)
+  n <- length(sorted.samples)
+  n.included <- ceiling(prob * n)
+  n.ci <- n - n.included + 1
   
-  ci_widths <- sorted_samples[(n_included):n] - sorted_samples[1:n_ci]
-  min_idx <- which.min(ci_widths)
+  ci.widths <- sorted.samples[(n.included):n] - sorted.samples[1:n.ci]
+  min.idx <- which.min(ci.widths)
   
-  c(lower = sorted_samples[min_idx], 
-    upper = sorted_samples[min_idx + n_included - 1])
+  c(lower = sorted.samples[min.idx], 
+    upper = sorted.samples[min.idx + n.included - 1])
 }
 
 #' Create forest plot data from stanfit
 #' 
 #' @param fit A stanfit object
-#' @param truth_data Data frame with true CATEs
-#' @param par_name Name of the parameter (default "CATE")
+#' @param truth.data Data frame with true CATEs
+#' @param par.name Name of the parameter (default "CATE")
 #' @return Data frame ready for ggplot
-prepare_forest_plot_data <- function(fit, truth_data, par_name = "CATE") {
+prepare.forest.plot.data <- function(fit, truth.data, par.name = "CATE") {
   
   # Extract summary
-  cate_summary <- summary(fit, pars = par_name)$summary %>%
+  cate.summary <- summary(fit, pars = par.name)$summary %>%
     as.data.frame() %>%
     tibble::rownames_to_column("param")
   
   # Get subgroup mapping
-  subgroup_map <- truth_data %>%
+  subgroup.map <- truth.data %>%
     dplyr::select(subgroup_id, subgroup_label, true.cate, sex, ascites, age.high) %>%
     dplyr::distinct() %>%
     dplyr::arrange(subgroup_id) %>%
@@ -124,45 +124,45 @@ prepare_forest_plot_data <- function(fit, truth_data, par_name = "CATE") {
     )
   
   # Combine
-  result <- cbind(subgroup_map, cate_summary)
+  result <- cbind(subgroup.map, cate.summary)
   
   return(result)
 }
 
 #' Compute sensitivity bounds for unmeasured confounding
 #' 
-#' @param naive_estimate The naive (potentially biased) estimate
-#' @param gamma_range Vector of selection bias values
-#' @param beta_range Vector of outcome bias values
+#' @param naive.estimate The naive (potentially biased) estimate
+#' @param gamma.range Vector of selection bias values
+#' @param beta.range Vector of outcome bias values
 #' @return Data frame with adjusted estimates
-compute_sensitivity_bounds <- function(naive_estimate, gamma_range, beta_range) {
+compute.sensitivity.bounds <- function(naive.estimate, gamma.range, beta.range) {
   
-  expand.grid(gamma = gamma_range, beta = beta_range) %>%
+  expand.grid(gamma = gamma.range, beta = beta.range) %>%
     mutate(
       # Approximate bias adjustment (simplified Rosenbaum bounds)
-      bias_adjustment = gamma * beta * 0.1,  # Scaling factor
-      adjusted_lower = naive_estimate - bias_adjustment,
-      adjusted_upper = naive_estimate + bias_adjustment,
-      robustness = abs(naive_estimate) > bias_adjustment
+      bias.adjustment = gamma * beta * 0.1,  # Scaling factor
+      adjusted.lower = naive.estimate - bias.adjustment,
+      adjusted.upper = naive.estimate + bias.adjustment,
+      robustness = abs(naive.estimate) > bias.adjustment
     )
 }
 
 #' Generate a diagnostic report string
 #' 
-#' @param diagnostics List from extract_stan_diagnostics
+#' @param diagnostics List from extract.stan.diagnostics
 #' @return Character string with formatted report
-format_diagnostics_report <- function(diagnostics) {
+format.diagnostics.report <- function(diagnostics) {
   paste0(
     "Stan Diagnostics Summary:\n",
     "-------------------------\n",
-    sprintf("Divergent transitions: %d\n", diagnostics$n_divergent),
-    sprintf("Max treedepth exceeded: %d\n", diagnostics$n_max_treedepth),
-    sprintf("Low E-BFMI chains: %d\n", diagnostics$ebfmi_low),
-    sprintf("Max R-hat: %.4f (warning if > 1.01)\n", diagnostics$rhat_max),
-    sprintf("Parameters with R-hat > 1.01: %d\n", diagnostics$rhat_warn),
-    sprintf("Min n_eff: %.0f\n", diagnostics$neff_min),
-    sprintf("Parameters with low n_eff ratio: %d\n", diagnostics$neff_warn),
+    sprintf("Divergent transitions: %d\n", diagnostics$n.divergent),
+    sprintf("Max treedepth exceeded: %d\n", diagnostics$n.max.treedepth),
+    sprintf("Low E-BFMI chains: %d\n", diagnostics$ebfmi.low),
+    sprintf("Max R-hat: %.4f (warning if > 1.01)\n", diagnostics$rhat.max),
+    sprintf("Parameters with R-hat > 1.01: %d\n", diagnostics$rhat.warn),
+    sprintf("Min n_eff: %.0f\n", diagnostics$neff.min),
+    sprintf("Parameters with low n_eff ratio: %d\n", diagnostics$neff.warn),
     sprintf("\nOverall status: %s\n", 
-            ifelse(diagnostics$all_ok, "✓ ALL OK", "⚠ ISSUES DETECTED"))
+            ifelse(diagnostics$all.ok, "✓ ALL OK", "⚠ ISSUES DETECTED"))
   )
 }

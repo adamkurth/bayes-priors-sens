@@ -11,23 +11,23 @@
 setwd("/Users/adamkurth/Documents/RStudio/research/bayes-priors-sens")
 
 # Configuration
-REGENERATE_DATA <- FALSE  # Set TRUE to regenerate data batches
-RUN_FULL_ANALYSIS <- TRUE # Set TRUE to run the complete analysis
+REGENERATE.DATA <- FALSE  # Set TRUE to regenerate data batches
+RUN.FULL.ANALYSIS <- TRUE # Set TRUE to run the complete analysis
 
 # 1. Generate data batches if needed
-if (REGENERATE_DATA || !dir.exists("data_batches")) {
+if (REGENERATE.DATA || !dir.exists("data_batches")) {
   print("=== Generating Data Batches ===")
   source("R/02_generate.r")
 } else {
   print("=== Data batches already exist. Skipping generation. ===")
-  print("=== Set REGENERATE_DATA <- TRUE to regenerate. ===")
+  print("=== Set REGENERATE.DATA <- TRUE to regenerate. ===")
 }
 
 # 2. Run the main analysis
-if (RUN_FULL_ANALYSIS) {
+if (RUN.FULL.ANALYSIS) {
   print("=== Running Full Analysis ===")
   print("=== This may take several hours for all 1000 simulations ===")
-  print("=== Reduce N_SIMS_TO_FIT in 01_test.r for faster testing ===")
+  print("=== Reduce N.SIMS.TO.FIT in 01_test.r for faster testing ===")
   source("R/01_test.r")
 }
 

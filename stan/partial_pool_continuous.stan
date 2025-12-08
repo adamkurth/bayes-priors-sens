@@ -40,7 +40,7 @@ model {
   beta_v ~ normal(0, 10);
   sigma ~ cauchy(0, 5);
   
-  // PARTIAL POOLING PRIORS (The core of your research)
+  // PARTIAL POOLING PRIORS
   
   // The Average Effect
   mu ~ normal(prior_mean_mu, 10); 
