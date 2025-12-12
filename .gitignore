@@ -4,3 +4,7 @@ tex/*
 ./DS_Store
 results/*
 tex/*
+.RData
+.Rhistory
+.DS_Store
+**/**/.DS_Store.RData
